@@ -2,7 +2,11 @@
 
 import { Maximize2, Pin, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { DashboardState, ProviderConnection } from "@/lib/contracts";
+import type {
+  AccountDetail,
+  DashboardState,
+  ProviderConnection,
+} from "@/lib/contracts";
 import { formatDateTime } from "@/lib/date";
 import { accountLabel, fullName, visibleWindows } from "@/lib/labels";
 import Button from "@/ui/Button";
@@ -11,6 +15,42 @@ import AccountDetails from "./AccountDetails";
 import styles from "./CompactView.module.scss";
 import ProviderIcon from "./ProviderIcon";
 import { quotaLevel, quotaStatusText, untilText } from "./QuotaBars";
+
+function hasMeasuredQuota(connection: ProviderConnection): boolean {
+  return visibleWindows(connection).some(
+    (window) =>
+      !window.paid &&
+      !window.unlimited &&
+      Number.isFinite(window.usedPercent) &&
+      !(window.amount && window.amount.used === undefined),
+  );
+}
+
+function detailPriority(detail: AccountDetail): number {
+  if (
+    detail.kind === "balance" ||
+    /balance|remaining|available/.test(detail.key)
+  )
+    return 0;
+  if (detail.kind === "plan" || /plan|tier/.test(detail.key)) return 1;
+  if (detail.kind === "status") return 2;
+  return 3;
+}
+
+function compactDetails(connection: ProviderConnection): AccountDetail[] {
+  const hasQuota = hasMeasuredQuota(connection);
+  return (connection.identity?.details ?? [])
+    .filter(
+      (detail) =>
+        !hasQuota ||
+        !(
+          ["usage", "limit", "percent"].includes(detail.kind) ||
+          /(?:^|[-_])(used|usage|limit|total|reset)(?:$|[-_])/.test(detail.key)
+        ),
+    )
+    .toSorted((a, b) => detailPriority(a) - detailPriority(b))
+    .slice(0, 2);
+}
 
 function CompactAccount({ connection }: { connection: ProviderConnection }) {
   const { t, i18n } = useTranslation();
@@ -86,7 +126,7 @@ function CompactAccount({ connection }: { connection: ProviderConnection }) {
           </div>
         );
       })}
-      <AccountDetails compact details={connection.identity?.details} />
+      <AccountDetails compact details={compactDetails(connection)} />
       {windows.length === 0 && !connection.identity?.details?.length && (
         <p className={styles.empty}>
           {connection.windows.length > 0
@@ -116,9 +156,11 @@ export default function CompactView({
   onPin: () => void;
 }) {
   const { t } = useTranslation();
-  const connections = state.connections.filter(
-    (connection) => connection.enabled,
-  );
+  const connections = state.connections
+    .filter((connection) => connection.enabled)
+    .toSorted(
+      (a, b) => Number(hasMeasuredQuota(b)) - Number(hasMeasuredQuota(a)),
+    );
 
   return (
     <main className={styles.compact} aria-label={t("Compact.Title")}>

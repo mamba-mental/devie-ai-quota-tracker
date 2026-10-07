@@ -285,13 +285,22 @@ fn parse_runware(v: &Value) -> Result<QuotaReading, String> {
             })
         })
         .ok_or("Runware did not return account details.")?;
-    let currency = account["balance"]["currency"]
-        .as_str()
-        .ok_or("Runware did not return a balance currency.")?;
+    let balance = &account["balance"];
+    let (amount, currency) = if balance.is_object() {
+        (
+            &balance["amount"],
+            balance["currency"]
+                .as_str()
+                .ok_or("Runware did not return a balance currency.")?,
+        )
+    } else {
+        // Runware pricing documents account balances and costs in USD; live accounts also return a scalar balance.
+        (balance, "USD")
+    };
     let mut d = Vec::new();
     numeric(
         &mut d,
-        &account["balance"]["amount"],
+        amount,
         "balance",
         "Account balance",
         "balance",
@@ -424,6 +433,28 @@ mod tests {
                 .find("secret-placeholder")
                 .is_none()
         );
+    }
+    #[test]
+    fn runware_accepts_live_scalar_balance_without_private_fields() {
+        for amount in [payload!(12.75), payload!("12.75"), payload!(0)] {
+            let r = parse_runware(&payload!({"data":[{
+                "taskType":"accountManagement", "operation":"getDetails", "balance":amount,
+                "usage":{"today":{"credits":"0.25","requests":2}},
+                "organizationName":"private-placeholder", "team":[{"email":"private@example.test"}],
+                "apiKeys":[{"apiKey":"secret-placeholder"}]
+            }]}))
+            .unwrap();
+            assert_eq!(fields(&r).len(), 3);
+            assert_eq!(fields(&r)[0].unit.as_deref(), Some("USD"));
+            assert!(fields(&r)
+                .iter()
+                .any(|d| d.key == "today_spend" && d.value == "0.25"));
+            assert!(r.windows.is_empty());
+            let serialized = serde_json::to_string(fields(&r)).unwrap();
+            assert!(!serialized.contains("placeholder"));
+            assert!(!serialized.contains("private@example.test"));
+        }
+        assert!(parse_runware(&payload!({"data":[{"taskType":"accountManagement","operation":"getDetails","balance":null}]})).is_err());
     }
     #[test]
     fn balances_preserve_currency_and_do_not_invent_zero() {

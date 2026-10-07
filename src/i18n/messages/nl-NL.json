@@ -235,5 +235,43 @@
     "ResetHappenedBody": "{{window}} voor {{account}} is weer beschikbaar.",
     "TestTitle": "{{provider}}-meldingen staan aan",
     "TestBody": "Devie AI Quota Tracker waarschuwt je hier over {{account}}."
+  },
+  "AccountApi": {
+    "Title": "API accounts and balances",
+    "Description": "Connect account services to see the balances, usage and plan information they report. Available details vary by provider.",
+    "DesktopOnly": "Open the desktop app to browse and connect API accounts.",
+    "LoadingCatalog": "Loading account services…",
+    "CatalogFailed": "Account services could not be loaded.",
+    "Search": "Search API services",
+    "SearchPlaceholder": "Search providers or categories",
+    "NoMatches": "No services match this search.",
+    "SavedAccounts": "Saved accounts: {{count}} · ",
+    "KeyMethod": "API key",
+    "CliMethod": "Local command-line sign-in",
+    "Unavailable": "This account service is unavailable. Close this dialog and retry from Settings.",
+    "RequirementsFailed": "Could not load account requirements. Close this dialog and retry.",
+    "ConnectFailed": "Connection failed. Check the required account fields, credentials and provider permissions, then try again. Enter any keys again.",
+    "ConnectTitle": "Connect {{name}}",
+    "ReconnectTitle": "Reconnect {{name}}",
+    "LoadingRequirements": "Loading connection requirements…",
+    "DocsFailed": "Could not open provider documentation.",
+    "Docs": "Provider setup documentation",
+    "CliHint": "Uses the provider’s command-line tool already signed in on this computer. No API key is required here.",
+    "KeyLabel": "API key (required)",
+    "FieldRequired": "{{label}} (required)",
+    "FieldOptional": "{{label}} (optional)",
+    "AdditionalCredential": "Additional credential",
+    "Connecting": "Connecting…",
+    "Reconnect": "Reconnect account",
+    "Connect": "Connect account"
+  },
+  "Compact": {
+    "Title": "Accounts",
+    "Expand": "Expand",
+    "KeepOnTop": "Keep on top",
+    "Remaining": "Remaining",
+    "Reset": "Reset",
+    "Empty": "No enabled accounts. Expand to add an account.",
+    "Enter": "Compact view"
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import type {
   AccountApiProvider,
@@ -25,6 +26,7 @@ export default function AccountApiCatalog({
   onOpen: (provider: Provider) => void;
   state: DashboardState;
 }) {
+  const { t } = useTranslation();
   const [catalog, setCatalog] = useState<AccountApiProvider[]>([]);
 
   const [query, setQuery] = useState("");
@@ -33,13 +35,10 @@ export default function AccountApiCatalog({
 
   const [loading, setLoading] = useState(true);
 
-  const [attempt, setAttempt] = useState(0);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Retry intentionally reruns this catalog request.
   useEffect(() => {
+    if (!loading) return;
     let active = true;
 
-    setLoading(true);
     setError(false);
 
     void getAccountApiCatalog()
@@ -56,7 +55,7 @@ export default function AccountApiCatalog({
     return () => {
       active = false;
     };
-  }, [attempt]);
+  }, [loading]);
 
   const matches = catalog.filter((provider) =>
     `${provider.name} ${provider.category} ${provider.description}`
@@ -67,30 +66,25 @@ export default function AccountApiCatalog({
   const categories = [...new Set(matches.map((provider) => provider.category))];
 
   return (
-    <SettingRow.Group plain title="API accounts and balances">
+    <SettingRow.Group plain title={t("AccountApi.Title")}>
       <div className={styles.catalog}>
-        <p className={styles.hint}>
-          Connect account services to see the balances, usage and plan
-          information they report. Available details vary by provider.
-        </p>
+        <p className={styles.hint}>{t("AccountApi.Description")}</p>
         {!isDesktop() && (
-          <p className={styles.hint}>
-            Open the desktop app to browse and connect API accounts.
-          </p>
+          <p className={styles.hint}>{t("AccountApi.DesktopOnly")}</p>
         )}
-        {loading && <p role="status">Loading account services…</p>}
+        {loading && <p role="status">{t("AccountApi.LoadingCatalog")}</p>}
         {error && (
           <div role="alert">
-            <p>Account services could not be loaded.</p>
-            <Button size="sm" onClick={() => setAttempt((value) => value + 1)}>
-              Retry
+            <p>{t("AccountApi.CatalogFailed")}</p>
+            <Button size="sm" onClick={() => setLoading(true)}>
+              {t("Common.TryAgain")}
             </Button>
           </div>
         )}
         {catalog.length > 0 && (
           <Input
-            aria-label="Search API services"
-            placeholder="Search providers or categories"
+            aria-label={t("AccountApi.Search")}
+            placeholder={t("AccountApi.SearchPlaceholder")}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -120,11 +114,11 @@ export default function AccountApiCatalog({
                       <span>{provider.description}</span>
                       <small>
                         {accounts
-                          ? `${accounts} saved account${accounts === 1 ? "" : "s"} · `
+                          ? t("AccountApi.SavedAccounts", { count: accounts })
                           : ""}
                         {provider.apiKeyRequired
-                          ? "API key"
-                          : "Local command-line sign-in"}
+                          ? t("AccountApi.KeyMethod")
+                          : t("AccountApi.CliMethod")}
                       </small>
                     </button>
                   );
@@ -133,7 +127,7 @@ export default function AccountApiCatalog({
           </section>
         ))}
         {catalog.length > 0 && matches.length === 0 && (
-          <p>No services match this search.</p>
+          <p>{t("AccountApi.NoMatches")}</p>
         )}
       </div>
     </SettingRow.Group>

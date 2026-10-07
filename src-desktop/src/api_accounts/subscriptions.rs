@@ -35,15 +35,21 @@ pub async fn read(
             )
             .await?,
         ),
-        "minimax" => parse_minimax(
-            &json(
+        "minimax" => {
+            let (url, balance) = minimax_endpoint(key);
+            let value = json(
                 client
-                    .get("https://www.minimax.io/v1/token_plan/remains")
+                    .get(url)
                     .bearer_auth(key)
                     .header("Content-Type", "application/json"),
             )
-            .await?,
-        ),
+            .await?;
+            if balance {
+                parse_minimax_balance(&value)
+            } else {
+                parse_minimax(&value)
+            }
+        }
         "zai" => {
             let host = match fields.get("region").map(String::as_str).unwrap_or("global") {
                 "global" => "https://api.z.ai",
@@ -109,6 +115,72 @@ fn local_port(value: Option<&str>) -> Result<u16, String> {
             .ok_or_else(|| "The local Kimi server port must be between 1 and 65535.".into()),
         _ => Err("The local Kimi server port must be between 1 and 65535.".into()),
     }
+}
+
+fn minimax_endpoint(key: &str) -> (&'static str, bool) {
+    if key.starts_with("sk-api-") {
+        ("https://api.minimax.io/account/query_balance", true)
+    } else {
+        ("https://www.minimax.io/v1/token_plan/remains", false)
+    }
+}
+
+fn parse_minimax_balance(v: &Value) -> Result<QuotaReading, String> {
+    no_api_error(v)?;
+    if v["base_resp"]["status_code"].as_i64() != Some(0) {
+        return Err(REJECTED.into());
+    }
+    let mut details = Vec::new();
+    for (key, label) in [
+        ("available_amount", "Available balance"),
+        ("cash_balance", "Cash balance"),
+        ("voucher_balance", "Voucher balance"),
+        ("credit_balance", "Credit balance"),
+        ("owed_amount", "Amount owed"),
+    ] {
+        let value = decimal_string(&v[key])?;
+        details.push(detail(key, label, value, "balance", None));
+    }
+    details.push(detail(
+        "currency",
+        "Balance currency",
+        "Not reported by this API",
+        "status",
+        None,
+    ));
+    let alert = v["balance_alert_switch"].as_bool().ok_or(INVALID)?;
+    details.push(detail(
+        "balance_alert_switch",
+        "Balance alerts",
+        if alert { "Enabled" } else { "Disabled" },
+        "status",
+        None,
+    ));
+    if let Some(value) = v.get("balance_alert_threshold") {
+        if value.as_str() != Some("") {
+            details.push(detail(
+                "balance_alert_threshold",
+                "Balance alert threshold",
+                decimal_string(value)?,
+                "limit",
+                None,
+            ));
+        }
+    }
+    Ok(reading(details))
+}
+
+fn decimal_string(v: &Value) -> Result<&str, String> {
+    let value = v
+        .as_str()
+        .filter(|s| !s.is_empty() && s.len() <= 64 && s.trim() == *s)
+        .ok_or(INVALID)?;
+    value
+        .parse::<f64>()
+        .ok()
+        .filter(|n| n.is_finite())
+        .ok_or(INVALID)?;
+    Ok(value)
 }
 
 fn number(v: &Value) -> Result<f64, String> {
@@ -693,5 +765,41 @@ mod tests {
         }
         let error = parse_poe(&json!({"error":{"message":"private-account-secret"}})).unwrap_err();
         assert!(!error.contains("private-account-secret"));
+    }
+
+    #[test]
+    fn minimax_key_type_selects_only_its_documented_read_endpoint() {
+        assert_eq!(
+            minimax_endpoint("sk-api-fixture"),
+            ("https://api.minimax.io/account/query_balance", true)
+        );
+        assert_eq!(
+            minimax_endpoint("sk-cp-fixture"),
+            ("https://www.minimax.io/v1/token_plan/remains", false)
+        );
+        assert!(!minimax_endpoint("unknown-fixture").1);
+    }
+
+    #[test]
+    fn minimax_payg_preserves_decimal_strings_without_inventing_currency() {
+        let mut v = json!({"base_resp":{"status_code":0},"available_amount":"12.3400","cash_balance":"-0.25","voucher_balance":"1.00","credit_balance":"11.59","owed_amount":"0.25","balance_alert_switch":true,"balance_alert_threshold":"5.00"});
+        let r = parse_minimax_balance(&v).unwrap();
+        assert!(r.windows.is_empty());
+        let details = r.identity.unwrap().details;
+        assert_eq!(details[0].value, "12.3400");
+        assert!(details.iter().all(|d| d.unit.is_none()));
+        for bad in [
+            Value::Null,
+            json!(12.34),
+            json!("NaN"),
+            json!("inf"),
+            json!("secret text"),
+        ] {
+            v["available_amount"] = bad;
+            assert!(parse_minimax_balance(&v).is_err());
+        }
+        v["available_amount"] = json!("12.34");
+        v["base_resp"]["status_code"] = json!(2062);
+        assert!(parse_minimax_balance(&v).is_err());
     }
 }

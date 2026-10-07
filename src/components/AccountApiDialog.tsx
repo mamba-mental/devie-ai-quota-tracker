@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import type {
   AccountApiProvider,
@@ -40,6 +41,7 @@ export default function AccountApiDialog({
   onOpenChange: (open: boolean) => void;
   onConnected: (state: DashboardState) => void;
 }) {
+  const { t } = useTranslation();
   const [service, setService] = useState<AccountApiProvider>();
 
   const [apiKey, setApiKey] = useState("");
@@ -65,23 +67,17 @@ export default function AccountApiDialog({
 
         const found = catalog.find((item) => item.id === provider);
 
-        if (!found)
-          setError(
-            "This account service is unavailable. Close this dialog and retry from Settings.",
-          );
+        if (!found) setError(t("AccountApi.Unavailable"));
         else setService(found);
       })
       .catch(() => {
-        if (mounted.current)
-          setError(
-            "Could not load account requirements. Close this dialog and retry.",
-          );
+        if (mounted.current) setError(t("AccountApi.RequirementsFailed"));
       });
 
     return () => {
       mounted.current = false;
     };
-  }, [provider]);
+  }, [provider, t]);
 
   const valid =
     service &&
@@ -132,16 +128,15 @@ export default function AccountApiDialog({
         onOpenChange(false);
       }
     } catch {
-      if (mounted.current)
-        setError(
-          "Connection failed. Check the required account fields, credentials and provider permissions, then try again. Enter any keys again.",
-        );
+      if (mounted.current) setError(t("AccountApi.ConnectFailed"));
     } finally {
       pending.current = false;
 
       if (mounted.current) setBusy(false);
     }
   }
+
+  const additionalCredentialLabel = t("AccountApi.AdditionalCredential");
 
   return (
     <Dialog.Root open={open} onOpenChange={close} size="sm">
@@ -150,14 +145,19 @@ export default function AccountApiDialog({
         <Dialog.Popup>
           <Dialog.Header>
             <Dialog.Title>
-              {renew ? "Reconnect" : "Connect"}{" "}
-              {service?.name ?? providerName(provider)}
+              {renew
+                ? t("AccountApi.ReconnectTitle", {
+                    name: service?.name ?? providerName(provider),
+                  })
+                : t("AccountApi.ConnectTitle", {
+                    name: service?.name ?? providerName(provider),
+                  })}
             </Dialog.Title>
           </Dialog.Header>
           <Dialog.Body>
             <form className={styles.body} onSubmit={submit}>
               {!service && !error && (
-                <p role="status">Loading connection requirements…</p>
+                <p role="status">{t("AccountApi.LoadingRequirements")}</p>
               )}
               {service && (
                 <>
@@ -168,21 +168,18 @@ export default function AccountApiDialog({
                     type="button"
                     onClick={() =>
                       void openExternalUrl(service.docsUrl).catch(() =>
-                        setError("Could not open provider documentation."),
+                        setError(t("AccountApi.DocsFailed")),
                       )
                     }
                   >
-                    Provider setup documentation
+                    {t("AccountApi.Docs")}
                   </Button>
                   {!service.apiKeyRequired && (
-                    <p className={styles.hint}>
-                      Uses the provider’s command-line tool already signed in on
-                      this computer. No API key is required here.
-                    </p>
+                    <p className={styles.hint}>{t("AccountApi.CliHint")}</p>
                   )}
                   {service.apiKeyRequired && (
                     <Field.Root>
-                      <Field.Label>API key (required)</Field.Label>
+                      <Field.Label>{t("AccountApi.KeyLabel")}</Field.Label>
                       <Input
                         required
                         type="password"
@@ -198,8 +195,13 @@ export default function AccountApiDialog({
                   {service.fields.map((field) => (
                     <Field.Root key={field.id}>
                       <Field.Label>
-                        {field.label} (
-                        {field.required ? "required" : "optional"})
+                        {field.required
+                          ? t("AccountApi.FieldRequired", {
+                              label: field.label,
+                            })
+                          : t("AccountApi.FieldOptional", {
+                              label: field.label,
+                            })}
                       </Field.Label>
                       <Input
                         required={field.required}
@@ -222,13 +224,17 @@ export default function AccountApiDialog({
                     service.secondarySecretLabel) && (
                     <Field.Root>
                       <Field.Label>
-                        {service.secondarySecretLabel ??
-                          "Additional credential"}{" "}
-                        (
                         {service.secondarySecretRequired
-                          ? "required"
-                          : "optional"}
-                        )
+                          ? t("AccountApi.FieldRequired", {
+                              label:
+                                service.secondarySecretLabel ??
+                                additionalCredentialLabel,
+                            })
+                          : t("AccountApi.FieldOptional", {
+                              label:
+                                service.secondarySecretLabel ??
+                                additionalCredentialLabel,
+                            })}
                       </Field.Label>
                       <Input
                         required={service.secondarySecretRequired}
@@ -246,10 +252,10 @@ export default function AccountApiDialog({
                   )}
                   <Button disabled={busy || !valid} type="submit" size="sm">
                     {busy
-                      ? "Connecting…"
+                      ? t("AccountApi.Connecting")
                       : renew
-                        ? "Reconnect account"
-                        : "Connect account"}
+                        ? t("AccountApi.Reconnect")
+                        : t("AccountApi.Connect")}
                   </Button>
                 </>
               )}
@@ -267,7 +273,7 @@ export default function AccountApiDialog({
               variant="naked"
               size="sm"
             >
-              Cancel
+              {t("Common.Cancel")}
             </Button>
           </Dialog.Footer>
         </Dialog.Popup>

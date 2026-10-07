@@ -219,7 +219,7 @@ export function ConnectionMenu({
             {onSignIn && connection.provider.startsWith("api:") && (
               <Menu.Item onClick={() => onSignIn(connection)}>
                 <LogIn size={14} />
-                Reconnect account
+                {t("AccountApi.Reconnect")}
               </Menu.Item>
             )}
             {onRename && (
