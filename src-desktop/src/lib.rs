@@ -89,6 +89,43 @@ fn cancel_login(core: State<'_, Core>, session_id: String) {
 }
 
 #[tauri::command]
+async fn connect_api_key(
+    app: AppHandle,
+    provider: String,
+    api_key: String,
+    connection_id: Option<String>,
+) -> Result<DashboardState, String> {
+    let api_key = zeroize::Zeroizing::new(api_key);
+    if provider != model::Provider::OpenCodeGo.as_str() {
+        return Err("This provider does not support API-key connections.".to_string());
+    }
+    let core = app.state::<Core>().inner().clone();
+    let saved = credentials::Credentials {
+        access_token: api_key.trim().to_string(),
+        refresh_token: None,
+        expires_at: None,
+        account_id: None,
+        project_id: None,
+    };
+    let connection = oauth::opencode_go::connection_for(&core.database, connection_id.as_deref())?;
+    let reading = oauth::opencode_go::usage(&core.client, &saved).await?;
+    let _guard = core.refresh_gate.lock().await;
+    let connection = if connection_id.is_some() {
+        oauth::opencode_go::connection_for(&core.database, connection_id.as_deref())?
+    } else {
+        connection
+    };
+    credentials::save(&core.app_data_dir, &connection.id, &saved)?;
+    core.database.upsert_connections(&[connection.clone()])?;
+    core.database.save_reading(&connection.id, &reading)?;
+    core.telemetry.capture(
+        "provider_connected",
+        serde_json::json!({ "provider": provider }),
+    );
+    publish_state(&app, &core)
+}
+
+#[tauri::command]
 fn remove_connection(
     app: AppHandle,
     core: State<'_, Core>,
@@ -636,13 +673,39 @@ fn update_tray_title(app: &AppHandle, state: &DashboardState) {
     match tray_window(state) {
         Some((connection, window)) => {
             let left = (100.0 - window.used_percent).clamp(0.0, 100.0);
-            let _ = tray.set_title(Some(format!("{left:.0}%")));
-            if let Some(icon) = tray_icons::provider_icon(&connection.provider) {
-                let _ = tray.set_icon(Some(icon));
+            let label = connection
+                .custom_label
+                .as_deref()
+                .unwrap_or(&connection.label);
+            let tooltip = format!("{label}: {} — {left:.0}%", window.label);
+            // Windows tooltips have a 127 UTF-16-unit limit. Bound user-entered labels.
+            let mut length = 0;
+            let tooltip: String = tooltip
+                .chars()
+                .take_while(|c| {
+                    length += c.len_utf16();
+                    length <= 127
+                })
+                .collect();
+            let _ = tray.set_tooltip(Some(tooltip));
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = tray.set_title(Some(format!("{left:.0}%")));
+                if let Some(icon) = tray_icons::provider_icon(&connection.provider) {
+                    let _ = tray.set_icon(Some(icon));
+                }
             }
+            #[cfg(target_os = "windows")]
+            let _ = tray.set_icon(Some(tray_icons::quota_icon(left.round() as u8)));
         }
         None => {
+            #[cfg(not(target_os = "windows"))]
             let _ = tray.set_title(Some("—"));
+            let _ = tray.set_tooltip(Some(messages::t(
+                &current_language(&app.state::<Core>()),
+                "Tray.Tooltip",
+                &[],
+            )));
             if let Some(icon) = app.default_window_icon() {
                 let _ = tray.set_icon(Some(icon.clone()));
             }
@@ -726,16 +789,16 @@ fn build_windows(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             .state(EffectState::FollowsWindowActiveState)
             .build(),
     );
-    let popover = popover
+    let _popover = popover
         .always_on_top(true)
         .skip_taskbar(true)
         .shadow(true)
         .visible(false)
         .build()?;
     #[cfg(target_os = "macos")]
-    make_non_activating_panel(&popover);
+    make_non_activating_panel(&_popover);
     #[cfg(target_os = "macos")]
-    hide_popover_on_outside_click(app.handle().clone(), &popover);
+    hide_popover_on_outside_click(app.handle().clone(), &_popover);
     Ok(())
 }
 
@@ -887,10 +950,18 @@ fn build_tray(app: &tauri::App, locale: &str) -> Result<(), Box<dyn std::error::
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "windows")]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        let _ = show_main_window(app);
+    }));
+    let builder = builder
         .plugin(tauri_plugin_positioner::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_notification::init());
+    // This Windows fork is distributed manually; the upstream feed cannot update it.
+    #[cfg(not(target_os = "windows"))]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    builder
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -967,11 +1038,28 @@ pub fn run() {
         })
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } if window.label() == "main" => {
+                #[cfg(target_os = "windows")]
+                if !window
+                    .state::<Core>()
+                    .database
+                    .settings()
+                    .map(|settings| settings.show_menu_bar_item)
+                    .unwrap_or(true)
+                {
+                    window.app_handle().exit(0);
+                    return;
+                }
                 // Closing the window leaves the menu bar item running.
                 api.prevent_close();
                 let _ = window.hide();
                 #[cfg(target_os = "macos")]
                 let _ = window.app_handle().set_dock_visibility(false);
+            }
+            tauri::WindowEvent::Resized(_) if window.label() == "popover" => {
+                #[cfg(target_os = "windows")]
+                if let Some(popover) = window.app_handle().get_webview_window("popover") {
+                    let _ = popover.move_window(Position::TrayCenter);
+                }
             }
             tauri::WindowEvent::Focused(false) if window.label() == "popover" => {
                 // On macOS the mouse monitors do this: a full screen Space takes
@@ -986,6 +1074,7 @@ pub fn run() {
             get_dashboard_state,
             start_login,
             finish_login,
+            connect_api_key,
             cancel_login,
             remove_connection,
             refresh_all,
@@ -1016,14 +1105,15 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("Devie AI Quota Tracker failed to start")
-        .run(|app, event| {
+        .run(|_app, _event| {
             // A Dock click with no visible window reopens the main window.
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen {
                 has_visible_windows: false,
                 ..
-            } = event
+            } = _event
             {
-                let _ = show_main_window(app);
+                let _ = show_main_window(_app);
             }
         });
 }

@@ -16,6 +16,7 @@ pub mod codex;
 pub mod copilot;
 pub mod cursor;
 pub mod gemini;
+pub mod opencode_go;
 
 use std::{
     collections::HashMap,
@@ -156,6 +157,7 @@ pub async fn start(
 ) -> Result<(LoginStart, PendingLogin), String> {
     let session_id = random_token(16);
     match provider {
+        Provider::OpenCodeGo => Err("Connect OpenCode Go with an API key.".to_string()),
         Provider::Claude | Provider::Codex => {
             let pair = pkce();
             let (redirect_uri, url, port, path) = if provider == Provider::Claude {
@@ -279,6 +281,7 @@ pub async fn finish(
     manual_code: Option<String>,
 ) -> Result<LoginOutcome, String> {
     match login.provider {
+        Provider::OpenCodeGo => Err("Connect OpenCode Go with an API key.".to_string()),
         Provider::Copilot => {
             let device = login
                 .device
@@ -345,7 +348,7 @@ pub async fn finish(
                     )
                     .await
                 }
-                Provider::Copilot | Provider::Cursor => unreachable!(),
+                Provider::Copilot | Provider::Cursor | Provider::OpenCodeGo => unreachable!(),
             }
         }
     }
@@ -369,6 +372,7 @@ pub fn connection_for(provider: &Provider, outcome: &LoginOutcome) -> NewConnect
         Provider::Antigravity => "Antigravity",
         Provider::Copilot => "Copilot",
         Provider::Cursor => "Cursor",
+        Provider::OpenCodeGo => "OpenCode Go",
     };
     let locator = format!("oauth/{}/{}", provider.as_str(), outcome.account_key);
     let who = outcome
@@ -417,6 +421,7 @@ pub async fn credentials_for_request(
         Provider::Antigravity => antigravity::REFRESH_LEAD,
         Provider::Copilot => chrono::Duration::zero(),
         Provider::Cursor => cursor::REFRESH_LEAD,
+        Provider::OpenCodeGo => chrono::Duration::zero(),
     };
     if current.refresh_token.is_some() && current.expires_within(lead) {
         current = renew(connection, app_data_dir, client, &current).await?;
@@ -437,6 +442,9 @@ async fn renew(
         Provider::Antigravity => antigravity::refresh_tokens(client, current).await,
         Provider::Copilot => Err("GitHub tokens do not renew. Sign in again.".to_string()),
         Provider::Cursor => Err("Cursor tokens do not renew. Sign in again.".to_string()),
+        Provider::OpenCodeGo => {
+            Err("OpenCode Go API keys do not renew. Sign in again with a new key.".to_string())
+        }
     }
     .map_err(|message| format!("{message} Sign in again to renew the login."))?;
     credentials::save(app_data_dir, &connection.id, &renewed)?;
@@ -463,6 +471,7 @@ async fn read_quota(
             copilot::usage(client, current, login).await
         }
         Provider::Cursor => cursor::usage(client, current).await,
+        Provider::OpenCodeGo => opencode_go::usage(client, current).await,
     }
 }
 

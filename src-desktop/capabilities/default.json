@@ -17,5 +17,5 @@
     "notification:default",
     "process:allow-restart"
   ],
-  "platforms": ["macOS"]
+  "platforms": ["macOS", "windows"]
 }

@@ -71,6 +71,9 @@ pub async fn fetch_update(
     app: AppHandle,
     pending: State<'_, PendingUpdate>,
 ) -> Result<Option<UpdateInfo>, String> {
+    if cfg!(target_os = "windows") {
+        return Err("Updates are installed manually for this Windows build.".to_string());
+    }
     let channel = app
         .state::<crate::Core>()
         .database
@@ -106,6 +109,9 @@ pub async fn download_update(
     pending: State<'_, PendingUpdate>,
     on_event: Channel<DownloadEvent>,
 ) -> Result<(), String> {
+    if cfg!(target_os = "windows") {
+        return Err("Updates are installed manually for this Windows build.".to_string());
+    }
     let Some(update) = pending.0.lock().unwrap().update.take() else {
         return Err("There is no update to download.".to_string());
     };
@@ -146,6 +152,9 @@ pub async fn download_update(
 /// Installs the downloaded update. The frontend relaunches the app after.
 #[tauri::command]
 pub fn install_update(pending: State<'_, PendingUpdate>) -> Result<(), String> {
+    if cfg!(target_os = "windows") {
+        return Err("Updates are installed manually for this Windows build.".to_string());
+    }
     let (update, bytes) = {
         let mut guard = pending.0.lock().unwrap();
         (guard.update.take(), guard.bytes.take())

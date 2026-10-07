@@ -132,6 +132,14 @@
     "CodePlaceholder": "code#state",
     "UseCode": "Brug kode",
     "Connected": "Forbundet",
+    "ApiKey": {
+      "Label": "OpenCode Go API key",
+      "Description": "Enter an API key for your OpenCode Go or Go Plus subscription. This app uses it only to read quota usage, never to send model requests.",
+      "RenewHint": "Replace the API key for {{account}} with a key from the same account.",
+      "Connect": "Connect account",
+      "Connecting": "Checking quota access…",
+      "Failed": "Could not connect. Check that the key belongs to an active OpenCode Go or Go Plus subscription, then try again."
+    },
     "Hint": {
       "claude": "Log ind på Claude i browseren. Appen modtager resultatet på denne Mac.",
       "codex": "Log ind med din ChatGPT-konto i browseren. Appen modtager resultatet på denne Mac.",

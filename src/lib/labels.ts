@@ -7,6 +7,7 @@ export const PROVIDER_NAMES: Record<Provider, string> = {
   antigravity: "Antigravity",
   copilot: "GitHub Copilot",
   cursor: "Cursor",
+  "opencode-go": "OpenCode Go",
 };
 
 /** Providers without a documented quota API; their page shows a warning. */
@@ -23,6 +24,7 @@ export const PROVIDERS: Provider[] = [
   "antigravity",
   "copilot",
   "cursor",
+  "opencode-go",
 ];
 
 /** The user's label, else the account email or id, else the discovered label. */

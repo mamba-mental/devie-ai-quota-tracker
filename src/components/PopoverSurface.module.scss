@@ -18,6 +18,12 @@
     background: var(--app__popover-tint);
     backdrop-filter: none;
   }
+
+  // Windows has no AppKit blur. Keep text readable over any desktop wallpaper.
+  &[data-windows="true"] {
+    background: $devie__color__background;
+    backdrop-filter: none;
+  }
 }
 
 .header {

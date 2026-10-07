@@ -7,6 +7,7 @@ import type { DashboardState, TraySummary } from "@/lib/contracts";
 import {
   hidePopover,
   isDesktop,
+  isWindowsDesktop,
   openMainWindow,
   resizePopover,
   setTraySummary,
@@ -128,7 +129,8 @@ export default function PopoverSurface({
     <Tooltip.Provider>
       <main
         className={styles.popover}
-        data-native-material={isDesktop() || undefined}
+        data-native-material={(isDesktop() && !isWindowsDesktop()) || undefined}
+        data-windows={isWindowsDesktop() || undefined}
       >
         <header className={styles.header} ref={headerRef}>
           {providerCount > 1 && (

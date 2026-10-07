@@ -10,10 +10,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { IS_DESKTOP_BUILD, isDesktop } from "@/lib/desktop";
+import { IS_DESKTOP_BUILD, isDesktop, isWindowsDesktop } from "@/lib/desktop";
 
 /** Packaged build in a Tauri window. A browser preview has no updater. */
-const UPDATER_ENABLED = IS_DESKTOP_BUILD && isDesktop();
+const UPDATER_ENABLED = IS_DESKTOP_BUILD && isDesktop() && !isWindowsDesktop();
 
 export type UpdateStatus =
   | "idle"

@@ -10,6 +10,8 @@ pub enum Provider {
     Antigravity,
     Copilot,
     Cursor,
+    #[serde(rename = "opencode-go")]
+    OpenCodeGo,
 }
 
 impl Provider {
@@ -21,6 +23,7 @@ impl Provider {
             Self::Antigravity => "antigravity",
             Self::Copilot => "copilot",
             Self::Cursor => "cursor",
+            Self::OpenCodeGo => "opencode-go",
         }
     }
 
@@ -32,6 +35,7 @@ impl Provider {
             "antigravity" => Some(Self::Antigravity),
             "copilot" => Some(Self::Copilot),
             "cursor" => Some(Self::Cursor),
+            "opencode-go" => Some(Self::OpenCodeGo),
             _ => None,
         }
     }
@@ -284,6 +288,18 @@ pub struct QuotaReading {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opencode_go_provider_round_trips() {
+        assert_eq!(Provider::OpenCodeGo.as_str(), "opencode-go");
+        assert_eq!(Provider::from_db("opencode-go"), Some(Provider::OpenCodeGo));
+        let encoded = serde_json::to_string(&Provider::OpenCodeGo).unwrap();
+        assert_eq!(encoded, "\"opencode-go\"");
+        assert_eq!(
+            serde_json::from_str::<Provider>(&encoded).unwrap(),
+            Provider::OpenCodeGo
+        );
+    }
 
     #[test]
     fn antigravity_round_trips_as_a_separate_provider() {

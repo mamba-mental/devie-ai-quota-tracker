@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { ChevronLeft, Settings, X } from "lucide-react";
+import { isWindowsDesktop } from "@/lib/desktop";
 import Button from "@/ui/Button";
 import styles from "./TitleBar.module.scss";
 
@@ -48,7 +49,9 @@ export default function TitleBar({
     <header
       className={clsx(
         styles.titleBar,
-        windowControlsInset && styles.windowControlsInset,
+        windowControlsInset &&
+          !isWindowsDesktop() &&
+          styles.windowControlsInset,
       )}
       data-tauri-drag-region
     >

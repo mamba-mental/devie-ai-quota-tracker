@@ -20,6 +20,10 @@ export function isDesktop(): boolean {
   return typeof window !== "undefined" && Boolean(window.__TAURI_INTERNALS__);
 }
 
+export function isWindowsDesktop(): boolean {
+  return isDesktop() && /Windows/i.test(window.navigator.userAgent);
+}
+
 /** Packaged builds only: `tauri dev` must not read the update feed or install over itself. */
 export const IS_DESKTOP_BUILD =
   process.env.NEXT_PUBLIC_IS_DESKTOP_BUILD === "true";
@@ -79,6 +83,21 @@ export async function finishLogin(
     throw new Error("The browser preview cannot complete a provider sign-in.");
   }
   return call("finish_login", { sessionId, code: code || null });
+}
+
+export async function connectApiKey(
+  provider: "opencode-go",
+  apiKey: string,
+  connectionId?: string,
+): Promise<DashboardState> {
+  if (!isDesktop()) {
+    throw new Error("API key connections require the desktop app.");
+  }
+  return call("connect_api_key", {
+    provider,
+    apiKey,
+    connectionId: connectionId ?? null,
+  });
 }
 
 export async function cancelLogin(sessionId: string): Promise<void> {

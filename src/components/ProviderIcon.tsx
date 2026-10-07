@@ -34,7 +34,7 @@ export function BrandIcon({
       data-brand={brand}
       decoding="async"
       height={size}
-      src={`/providers/${brand}.png`}
+      src={`/providers/${brand === "opencode-go" ? "opencode" : brand}.png`}
       width={size}
     />
   );

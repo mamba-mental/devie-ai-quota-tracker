@@ -9,7 +9,12 @@ import type {
   Provider,
   ProviderConnection,
 } from "@/lib/contracts";
-import { cancelLogin, finishLogin, startLogin } from "@/lib/desktop";
+import {
+  cancelLogin,
+  connectApiKey,
+  finishLogin,
+  startLogin,
+} from "@/lib/desktop";
 import { accountLabel, PROVIDER_NAMES } from "@/lib/labels";
 import Button from "@/ui/Button";
 import Dialog from "@/ui/Dialog";
@@ -25,7 +30,146 @@ function errorMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-export default function LoginDialog({
+interface LoginDialogProps {
+  provider: Provider;
+  open: boolean;
+  renew?: ProviderConnection;
+  onOpenChange: (open: boolean) => void;
+  onConnected: (state: DashboardState) => void;
+}
+
+export default function LoginDialog(props: LoginDialogProps) {
+  return props.provider === "opencode-go" ? (
+    props.open ? (
+      <ApiKeyLoginDialog key={props.renew?.id ?? "new"} {...props} />
+    ) : null
+  ) : (
+    <OAuthLoginDialog {...props} />
+  );
+}
+
+function ApiKeyLoginDialog({
+  provider,
+  open,
+  renew,
+  onOpenChange,
+  onConnected,
+}: LoginDialogProps) {
+  const { t } = useTranslation();
+  const [apiKey, setApiKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const requestRef = useRef(0);
+  const pendingRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      requestRef.current += 1;
+    };
+  }, []);
+
+  function changeOpen(next: boolean) {
+    if (!next && pendingRef.current) return;
+    if (!next) {
+      setApiKey("");
+      requestRef.current += 1;
+    }
+    onOpenChange(next);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pendingRef.current || !apiKey.trim()) return;
+    pendingRef.current = true;
+    const request = ++requestRef.current;
+    const key = apiKey.trim();
+    setApiKey("");
+    setBusy(true);
+    setFailed(false);
+    try {
+      const state = await connectApiKey("opencode-go", key, renew?.id);
+      if (request !== requestRef.current) return;
+      onConnected(state);
+      onOpenChange(false);
+    } catch {
+      if (request !== requestRef.current) return;
+      setFailed(true);
+    } finally {
+      if (request === requestRef.current) {
+        pendingRef.current = false;
+        setBusy(false);
+      }
+    }
+  }
+
+  const name = PROVIDER_NAMES[provider];
+  return (
+    <Dialog.Root onOpenChange={changeOpen} open={open} size="sm">
+      <Dialog.Portal>
+        <Dialog.Backdrop />
+        <Dialog.Popup>
+          <Dialog.Header>
+            <Dialog.Title>
+              <span className={styles.title}>
+                <ProviderIcon provider={provider} size={18} />
+                {renew
+                  ? t("Login.RenewTitle", { name })
+                  : t("Login.Title", { name })}
+              </span>
+            </Dialog.Title>
+          </Dialog.Header>
+          <Dialog.Body>
+            <form className={styles.body} onSubmit={submit}>
+              <p className={styles.hint}>{t("Login.ApiKey.Description")}</p>
+              {renew && (
+                <p className={styles.hint}>
+                  {t("Login.ApiKey.RenewHint", {
+                    account: accountLabel(renew),
+                  })}
+                </p>
+              )}
+              <Field.Root>
+                <Field.Label>{t("Login.ApiKey.Label")}</Field.Label>
+                <Input
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  disabled={busy}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  spellCheck={false}
+                  type="password"
+                  value={apiKey}
+                />
+              </Field.Root>
+              {failed && (
+                <p className={styles.error} role="alert">
+                  {t("Login.ApiKey.Failed")}
+                </p>
+              )}
+              <Button disabled={busy || !apiKey.trim()} size="sm" type="submit">
+                {busy && <LoaderCircle className={styles.spinning} size={16} />}
+                {busy
+                  ? t("Login.ApiKey.Connecting")
+                  : t("Login.ApiKey.Connect")}
+              </Button>
+            </form>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <Button
+              disabled={busy}
+              onClick={() => changeOpen(false)}
+              size="sm"
+              variant="naked"
+            >
+              {t("Common.Cancel")}
+            </Button>
+          </Dialog.Footer>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function OAuthLoginDialog({
   provider,
   open,
   renew,

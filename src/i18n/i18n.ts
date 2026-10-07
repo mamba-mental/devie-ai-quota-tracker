@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import { setLanguage } from "@/lib/desktop";
+import { isWindowsDesktop, setLanguage } from "@/lib/desktop";
 import { getDayjsLocale } from "./dayjs-locale";
 import {
   DEFAULT_LOCALE,
@@ -43,6 +43,25 @@ const resources = {
   "ja-JP": { translation: jaJP },
   "zh-CN": { translation: zhCN },
 } satisfies Record<SupportedLocale, { translation: typeof enUS }>;
+
+// These platform-specific strings use English until Windows translations are
+// available. Preserve every locale's existing provider and quota translations.
+if (isWindowsDesktop()) {
+  for (const { translation } of Object.values(resources)) {
+    translation.Settings.LaunchAtLoginDescription =
+      "Open the app automatically when you sign in to Windows";
+    translation.Settings.MenuBarItem = "System tray icon";
+    translation.Settings.MenuBarItemDescription =
+      "Show quotas in the Windows system tray";
+    translation.Settings.ShowMenuBarItem = "Show the system tray icon";
+    translation.Settings.Updates.Status.PackagedOnly =
+      "Updates are installed manually for this Windows build";
+    translation.Alerts.PermissionRequired =
+      "Allow notifications in Windows Settings to use quota alerts.";
+    translation.Quota.Pin.Shown = "Pinned to system tray";
+    translation.Quota.Pin.Show = "Pin to system tray";
+  }
+}
 
 /** The saved language, else the closest supported system language. */
 export const getStoredLanguage = (): SupportedLocale => {

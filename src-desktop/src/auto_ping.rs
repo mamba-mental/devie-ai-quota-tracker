@@ -211,6 +211,9 @@ async fn send(
         }
         Provider::Copilot => Err("The Quota Optimizer does not support Copilot.".to_string()),
         Provider::Cursor => Err("The Quota Optimizer does not support Cursor.".to_string()),
+        Provider::OpenCodeGo => {
+            Err("The Quota Optimizer does not support OpenCode Go.".to_string())
+        }
     }
 }
 

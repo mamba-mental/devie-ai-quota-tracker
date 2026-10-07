@@ -226,6 +226,7 @@ fn provider_name(provider: &Provider) -> &'static str {
         Provider::Antigravity => "Antigravity",
         Provider::Copilot => "Copilot",
         Provider::Cursor => "Cursor",
+        Provider::OpenCodeGo => "OpenCode Go",
     }
 }
 

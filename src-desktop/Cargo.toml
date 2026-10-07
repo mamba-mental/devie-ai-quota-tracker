@@ -27,7 +27,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 sys-locale = "0.3"
-tauri = { version = "=2.11.3", features = ["tray-icon", "macos-private-api", "image-png"] }
+tauri = { version = "=2.11.3", features = ["tray-icon", "image-png"] }
 tauri-plugin-positioner = { version = "2.3.1", features = ["tray-icon"] }
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-process = "2.3.1"
@@ -39,11 +39,16 @@ zeroize = "1"
 tauri-plugin-autostart = "2.5.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "=2.11.3", features = ["macos-private-api"] }
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPanel", "NSResponder", "NSWindow", "NSEvent", "NSApplication", "NSRunningApplication", "block2"] }
 block2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSObject", "NSString", "NSError"] }
 objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "block2", "UNUserNotificationCenter", "UNNotificationContent", "UNNotificationRequest", "UNNotificationSettings", "UNNotificationTrigger"] }
+
+[target.'cfg(windows)'.dependencies]
+tauri-plugin-single-instance = "=2.4.3"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
 
 [dev-dependencies]
 tempfile = "3"

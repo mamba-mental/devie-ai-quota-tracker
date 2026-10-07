@@ -2,6 +2,12 @@
 
 # Devie AI Quota Tracker
 
+> **Windows 11 port:** this branch adds a native Windows installer, system tray
+> quota display, encrypted Windows credential storage, and OpenCode Go / Go Plus
+> API-key connections. See the
+> [Windows build and verification guide](docs/windows-port.md). The original
+> macOS project and its license are retained below.
+
 [![Version](https://img.shields.io/github/v/tag/mathdevie/devie-ai-quota-tracker?label=version&color=4c1)](https://web.crabnebula.cloud/mathdev/devie-quota/releases)
 ![Platform](https://img.shields.io/badge/macOS-12%2B-black?logo=apple)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -190,5 +196,3 @@ This application was inspired by other awesome open-source projects:
 
 [MIT](LICENSE). 
 Third-party notices are in [NOTICES](docs/notices.md).
-
-

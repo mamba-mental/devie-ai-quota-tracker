@@ -4,7 +4,8 @@ export type Provider =
   | "gemini-cli"
   | "antigravity"
   | "copilot"
-  | "cursor";
+  | "cursor"
+  | "opencode-go";
 export type ConnectionStatus = "ready" | "stale" | "needs_login" | "error";
 
 export interface QuotaWindow {

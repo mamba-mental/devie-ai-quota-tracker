@@ -28,6 +28,7 @@ export const PROVIDER_FILTERS: ProviderFilter[] = [
   "antigravity",
   "copilot",
   "cursor",
+  "opencode-go",
 ];
 
 export const SORTS: Sort[] = ["expiring", "least-left", "most-left", "name"];

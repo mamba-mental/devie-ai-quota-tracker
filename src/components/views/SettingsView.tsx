@@ -5,7 +5,11 @@ import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { DashboardState, Provider, UpdateChannel } from "@/lib/contracts";
-import { getLaunchAtLogin, setLaunchAtLogin } from "@/lib/desktop";
+import {
+  getLaunchAtLogin,
+  isWindowsDesktop,
+  setLaunchAtLogin,
+} from "@/lib/desktop";
 import { PROVIDER_NAMES, PROVIDERS } from "@/lib/labels";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -152,9 +156,13 @@ function UpdateRow() {
           {statusText}
         </span>
       }
-      title={t("Settings.Updates.Title")}
+      title={
+        isWindowsDesktop()
+          ? t("Settings.Updates.Version", { version: APP_VERSION })
+          : t("Settings.Updates.Title")
+      }
     >
-      {status === "ready" ? (
+      {isWindowsDesktop() ? null : status === "ready" ? (
         <Button
           className={styles.updateAction}
           onClick={() => void installUpdate()}
@@ -360,11 +368,13 @@ export default function SettingsView({
       </SettingRow.Group>
       <SettingRow.Group title={t("Settings.About")}>
         <UpdateRow />
-        <ChannelRow
-          busy={busy}
-          channel={state.settings.updateChannel}
-          onChange={onUpdateChannelChange}
-        />
+        {!isWindowsDesktop() && (
+          <ChannelRow
+            busy={busy}
+            channel={state.settings.updateChannel}
+            onChange={onUpdateChannelChange}
+          />
+        )}
       </SettingRow.Group>
     </section>
   );
