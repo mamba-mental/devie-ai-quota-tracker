@@ -169,6 +169,7 @@ fn interpret(
             project_id: None,
         },
         RemoteIdentity {
+            details: Vec::new(),
             provider_user_id: account_id,
             display_name: email,
             plan,
@@ -333,6 +334,7 @@ pub fn parse_usage(json: &Value) -> Result<QuotaReading, String> {
     Ok(QuotaReading {
         source: "ChatGPT subscription API".to_string(),
         identity: plan.map(|plan| RemoteIdentity {
+            details: Vec::new(),
             provider_user_id: None,
             display_name: None,
             plan: Some(plan),

@@ -1,6 +1,8 @@
 mod alerts;
+mod api_accounts;
 mod auto_ping;
 mod codex_resets;
+mod compact_window;
 mod credentials;
 mod db;
 mod messages;
@@ -122,6 +124,85 @@ async fn connect_api_key(
         "provider_connected",
         serde_json::json!({ "provider": provider }),
     );
+    publish_state(&app, &core)
+}
+
+#[tauri::command]
+fn get_account_api_catalog() -> Vec<api_accounts::catalog::CatalogEntry> {
+    api_accounts::catalog::CATALOG.to_vec()
+}
+
+#[tauri::command]
+async fn test_account_api(
+    provider: String,
+    api_key: String,
+    fields: std::collections::BTreeMap<String, String>,
+    secondary_secret: Option<String>,
+) -> Result<model::QuotaReading, String> {
+    let api_key = zeroize::Zeroizing::new(api_key);
+    let secondary_secret = secondary_secret.map(zeroize::Zeroizing::new);
+    let entry = api_accounts::validate_fields(
+        &provider,
+        &api_key,
+        &fields,
+        secondary_secret.as_deref().map(String::as_str),
+    )?;
+    let credentials = credentials::Credentials {
+        access_token: api_key.trim().to_string(),
+        refresh_token: secondary_secret
+            .as_deref()
+            .map(|value| value.trim().to_string()),
+        account_id: Some(
+            serde_json::to_string(&fields).map_err(|_| "Invalid account settings.".to_string())?,
+        ),
+        expires_at: None,
+        project_id: None,
+    };
+    api_accounts::read(entry.id, &api_accounts::client()?, &credentials).await
+}
+
+#[tauri::command]
+async fn connect_account_api(
+    app: AppHandle,
+    provider: String,
+    api_key: String,
+    fields: std::collections::BTreeMap<String, String>,
+    secondary_secret: Option<String>,
+    connection_id: Option<String>,
+) -> Result<DashboardState, String> {
+    let api_key = zeroize::Zeroizing::new(api_key);
+    let secondary_secret = secondary_secret.map(zeroize::Zeroizing::new);
+    let entry = api_accounts::validate_fields(
+        &provider,
+        &api_key,
+        &fields,
+        secondary_secret.as_deref().map(String::as_str),
+    )?;
+    let core = app.state::<Core>().inner().clone();
+    let saved = credentials::Credentials {
+        access_token: api_key.trim().to_string(),
+        refresh_token: secondary_secret
+            .as_deref()
+            .map(|value| value.trim().to_string()),
+        account_id: Some(
+            serde_json::to_string(&fields).map_err(|_| "Invalid account settings.".to_string())?,
+        ),
+        expires_at: None,
+        project_id: None,
+    };
+    let reading = api_accounts::read(entry.id, &api_accounts::client()?, &saved).await?;
+    // Serialize reconnect validation and persistence with background refreshes.
+    let _guard = core.refresh_gate.lock().await;
+    let provider = model::Provider::AccountApi(entry.id);
+    let connection = api_accounts::connection_for(
+        &core.database,
+        provider,
+        connection_id.as_deref(),
+        entry.name,
+    )?;
+    credentials::save(&core.app_data_dir, &connection.id, &saved)?;
+    core.database.upsert_connections(&[connection.clone()])?;
+    core.database.save_reading(&connection.id, &reading)?;
     publish_state(&app, &core)
 }
 
@@ -988,6 +1069,7 @@ pub fn run() {
                 telemetry: telemetry.clone(),
             });
             app.manage(updater::PendingUpdate::default());
+            app.manage(compact_window::CompactWindow::default());
             build_windows(app)?;
             #[cfg(target_os = "macos")]
             activate_app();
@@ -1071,6 +1153,9 @@ pub fn run() {
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
+            get_account_api_catalog,
+            connect_account_api,
+            test_account_api,
             get_dashboard_state,
             start_login,
             finish_login,
@@ -1101,6 +1186,8 @@ pub fn run() {
             get_codex_resets_status,
             open_external_url,
             open_main_window,
+            compact_window::set_compact_mode,
+            compact_window::set_compact_always_on_top,
             hide_popover,
         ])
         .build(tauri::generate_context!())

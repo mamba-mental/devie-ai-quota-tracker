@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ProviderConnection } from "@/lib/contracts";
-import { accountLabel, PROVIDER_NAMES } from "@/lib/labels";
+import { accountLabel, providerName } from "@/lib/labels";
 import Button from "@/ui/Button";
 import Dialog from "@/ui/Dialog";
 import Field from "@/ui/Field";
@@ -52,7 +52,7 @@ export default function RenameDialog({
               <Dialog.Title>{t("Rename.Title")}</Dialog.Title>
               {connection && (
                 <Dialog.Description>
-                  {PROVIDER_NAMES[connection.provider]} ·{" "}
+                  {providerName(connection.provider)} ·{" "}
                   {accountLabel(connection)}
                 </Dialog.Description>
               )}

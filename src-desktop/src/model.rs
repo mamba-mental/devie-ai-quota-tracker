@@ -1,17 +1,15 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Provider {
     Claude,
     Codex,
-    #[serde(rename = "gemini-cli")]
     Gemini,
     Antigravity,
     Copilot,
     Cursor,
-    #[serde(rename = "opencode-go")]
     OpenCodeGo,
+    AccountApi(&'static str),
 }
 
 impl Provider {
@@ -24,6 +22,7 @@ impl Provider {
             Self::Copilot => "copilot",
             Self::Cursor => "cursor",
             Self::OpenCodeGo => "opencode-go",
+            Self::AccountApi(id) => id,
         }
     }
 
@@ -36,8 +35,20 @@ impl Provider {
             "copilot" => Some(Self::Copilot),
             "cursor" => Some(Self::Cursor),
             "opencode-go" => Some(Self::OpenCodeGo),
-            _ => None,
+            _ => crate::api_accounts::catalog::find(value).map(|entry| Self::AccountApi(entry.id)),
         }
+    }
+}
+
+impl Serialize for Provider {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+impl<'de> Deserialize<'de> for Provider {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        Self::from_db(&value).ok_or_else(|| serde::de::Error::custom("Unsupported provider"))
     }
 }
 
@@ -116,9 +127,22 @@ pub struct QuotaAmount {
     pub overage: Option<f64>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountDetail {
+    pub key: String,
+    pub label: String,
+    pub value: String,
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unit: Option<String>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteIdentity {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub details: Vec<AccountDetail>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_user_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -276,7 +300,8 @@ pub struct NewConnection {
     pub identity: Option<RemoteIdentity>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QuotaReading {
     pub source: String,
     pub identity: Option<RemoteIdentity>,

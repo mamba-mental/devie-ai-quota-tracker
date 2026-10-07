@@ -322,6 +322,7 @@ fn parse_profile(json: &Value) -> RemoteIdentity {
             .map(str::to_string)
     };
     RemoteIdentity {
+        details: Vec::new(),
         provider_user_id: text(account, "uuid").or_else(|| text(account, "id")),
         display_name: text(account, "email")
             .or_else(|| text(account, "display_name"))

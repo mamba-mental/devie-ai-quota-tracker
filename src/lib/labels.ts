@@ -1,4 +1,9 @@
-import type { Provider, ProviderConnection, QuotaWindow } from "./contracts";
+import type {
+  AccountApiProvider,
+  Provider,
+  ProviderConnection,
+  QuotaWindow,
+} from "./contracts";
 
 export const PROVIDER_NAMES: Record<Provider, string> = {
   claude: "Claude Code",
@@ -9,6 +14,17 @@ export const PROVIDER_NAMES: Record<Provider, string> = {
   cursor: "Cursor",
   "opencode-go": "OpenCode Go",
 };
+
+export function registerAccountApiNames(catalog: AccountApiProvider[]): void {
+  for (const provider of catalog) PROVIDER_NAMES[provider.id] = provider.name;
+}
+
+export function providerName(provider: Provider): string {
+  return (
+    PROVIDER_NAMES[provider] ??
+    provider.replace(/^api:/, "").replaceAll("-", " ")
+  );
+}
 
 /** Providers without a documented quota API; their page shows a warning. */
 const UNOFFICIAL_PROVIDERS: Provider[] = ["antigravity"];
@@ -56,5 +72,5 @@ export function isCreditStatus(window: QuotaWindow): boolean {
 
 /** "Claude Code work@example.com" for menus and accessible names. */
 export function fullName(connection: ProviderConnection): string {
-  return `${PROVIDER_NAMES[connection.provider]} ${accountLabel(connection)}`;
+  return `${providerName(connection.provider)} ${accountLabel(connection)}`;
 }

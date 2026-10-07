@@ -5,7 +5,8 @@ export type Provider =
   | "antigravity"
   | "copilot"
   | "cursor"
-  | "opencode-go";
+  | "opencode-go"
+  | `api:${string}`;
 export type ConnectionStatus = "ready" | "stale" | "needs_login" | "error";
 
 export interface QuotaWindow {
@@ -39,6 +40,29 @@ export interface RemoteIdentity {
   providerUserId?: string;
   displayName?: string;
   plan?: string;
+  details?: AccountDetail[];
+}
+
+export interface AccountDetail {
+  key: string;
+  label: string;
+  value: string;
+  kind: string;
+  unit?: string;
+}
+
+export interface AccountApiProvider {
+  id: `api:${string}`;
+  name: string;
+  category: string;
+  description: string;
+  docsUrl: string;
+  fields: { id: string; label: string; required: boolean; secret: boolean }[];
+  capability: string;
+  status: string;
+  apiKeyRequired: boolean;
+  secondarySecretRequired: boolean;
+  secondarySecretLabel?: string | null;
 }
 
 export interface ConnectionAlerts {

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { ProviderConnection } from "@/lib/contracts";
-import { accountLabel, PROVIDER_NAMES, visibleWindows } from "@/lib/labels";
+import { accountLabel, providerName, visibleWindows } from "@/lib/labels";
+import AccountDetails from "./AccountDetails";
 import CodexResetsNews from "./CodexResetsNews";
 import { StatusBadge } from "./ConnectionCard";
 import styles from "./PopoverRow.module.scss";
@@ -32,7 +33,7 @@ export default function PopoverRow({
       <header className={styles.header}>
         <ProviderIcon provider={connection.provider} size={20} />
         <p className={styles.identity}>
-          <strong>{PROVIDER_NAMES[connection.provider]}</strong>
+          <strong>{providerName(connection.provider)}</strong>
           <span>
             {" "}
             {accountLabel(connection)}
@@ -57,13 +58,14 @@ export default function PopoverRow({
           size="sm"
           windows={windows}
         />
-      ) : (
+      ) : !connection.identity?.details?.length ? (
         <p className={styles.empty}>
           {connection.windows.length > 0
             ? t("Connection.AllBarsHidden")
             : (connection.lastError ?? t("Connection.NoQuotaData"))}
         </p>
-      )}
+      ) : null}
+      <AccountDetails details={connection.identity?.details} />
     </article>
   );
 }

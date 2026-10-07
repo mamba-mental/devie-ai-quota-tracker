@@ -1,0 +1,115 @@
+@use "../ui/_devie.scss" as *;
+
+.compact {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: $devie__color__background;
+  color: $devie__color__text;
+}
+
+.toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid $devie__color__line;
+}
+
+.columns, .quota {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(48px, auto) 82px;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.columns {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  color: $devie__color__text-sub;
+  font-size: 11px;
+
+  span:not(:first-child) { text-align: right; }
+}
+
+.list { flex: 1; min-height: 0; }
+.viewport { outline: none; border-radius: 0; }
+
+.account {
+  padding: 5px 12px;
+  border-bottom: 1px solid $devie__color__line;
+}
+
+.identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+}
+
+.name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status {
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: $devie__color__warning;
+  font-size: 10px;
+  &[data-error] { color: $devie__color__danger; }
+}
+
+.quota {
+  min-height: 19px;
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.percent {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 19px;
+  text-align: right;
+}
+
+.reset {
+  white-space: nowrap;
+  font-size: 11px;
+  text-align: right;
+}
+
+.empty {
+  margin: 0;
+  padding: 8px 0;
+  color: $devie__color__text-sub;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.list > .empty { padding: 12px; }
+.spinning { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinning { animation: none; } }

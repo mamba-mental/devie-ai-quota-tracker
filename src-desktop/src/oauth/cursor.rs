@@ -127,6 +127,7 @@ fn interpret(tokens: &Value) -> Result<LoginOutcome, String> {
             project_id: None,
         },
         identity: RemoteIdentity {
+            details: Vec::new(),
             provider_user_id: Some(user_id.clone()),
             display_name: email,
             plan: None,
@@ -258,6 +259,7 @@ pub fn parse_usage_summary(json: &Value) -> Result<QuotaReading, String> {
     Ok(QuotaReading {
         source: "Cursor dashboard API".to_string(),
         identity: plan.map(|plan| RemoteIdentity {
+            details: Vec::new(),
             provider_user_id: None,
             display_name: None,
             plan: Some(plan),

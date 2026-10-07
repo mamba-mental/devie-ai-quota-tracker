@@ -227,6 +227,9 @@ fn provider_name(provider: &Provider) -> &'static str {
         Provider::Copilot => "Copilot",
         Provider::Cursor => "Cursor",
         Provider::OpenCodeGo => "OpenCode Go",
+        Provider::AccountApi(id) => crate::api_accounts::catalog::find(id)
+            .map(|entry| entry.name)
+            .unwrap_or("Account API"),
     }
 }
 

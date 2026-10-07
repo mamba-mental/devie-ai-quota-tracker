@@ -95,6 +95,12 @@ impl Database {
             "kind",
             "TEXT NOT NULL DEFAULT 'oauth'",
         )?;
+        Self::add_column_if_missing(
+            &connection,
+            "provider_connections",
+            "identity_details_json",
+            "TEXT",
+        )?;
         // Auto-detected CLI profiles are gone; only app sign-ins remain.
         connection
             .execute("DELETE FROM provider_connections WHERE kind = 'local'", [])
@@ -358,14 +364,15 @@ impl Database {
                 .execute(
                     "INSERT INTO provider_connections (
                        id, provider, label, source_locator,
-                       identity_user_id, identity_display_name, identity_plan, updated_at, kind
-                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'oauth')
+                       identity_user_id, identity_display_name, identity_plan, updated_at, kind, identity_details_json
+                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'oauth', ?9)
                      ON CONFLICT(id) DO UPDATE SET
                        source_locator = excluded.source_locator,
                        label = excluded.label,
                        identity_user_id = COALESCE(excluded.identity_user_id, provider_connections.identity_user_id),
                        identity_display_name = COALESCE(excluded.identity_display_name, provider_connections.identity_display_name),
                        identity_plan = COALESCE(excluded.identity_plan, provider_connections.identity_plan),
+                       identity_details_json = COALESCE(excluded.identity_details_json, provider_connections.identity_details_json),
                        updated_at = excluded.updated_at",
                     params![
                         item.id,
@@ -376,6 +383,7 @@ impl Database {
                         item.identity.as_ref().and_then(|value| value.display_name.as_deref()),
                         item.identity.as_ref().and_then(|value| value.plan.as_deref()),
                         now,
+                        item.identity.as_ref().and_then(|value| serde_json::to_string(&value.details).ok()),
                     ],
                 )
                 .map_err(|error| error.to_string())?;
@@ -395,7 +403,7 @@ impl Database {
                         alert_reset_happened, auto_ping_enabled,
                         last_auto_ping_reset_key, last_auto_ping_at,
                         last_auto_ping_error, auto_ping_observed_reset_at,
-                        last_auto_ping_attempt_at, reset_credits, hidden_windows
+                        last_auto_ping_attempt_at, reset_credits, hidden_windows, identity_details_json
                  FROM provider_connections
                  ORDER BY CASE provider
                    WHEN 'claude' THEN 0
@@ -418,8 +426,17 @@ impl Database {
                 let user_id: Option<String> = row.get(9)?;
                 let display_name: Option<String> = row.get(10)?;
                 let plan: Option<String> = row.get(11)?;
-                let identity = if user_id.is_some() || display_name.is_some() || plan.is_some() {
+                let details: Vec<crate::model::AccountDetail> = row
+                    .get::<_, Option<String>>(24)?
+                    .and_then(|json| serde_json::from_str(&json).ok())
+                    .unwrap_or_default();
+                let identity = if user_id.is_some()
+                    || display_name.is_some()
+                    || plan.is_some()
+                    || !details.is_empty()
+                {
                     Some(RemoteIdentity {
+                        details,
                         provider_user_id: user_id,
                         display_name,
                         plan,
@@ -737,7 +754,8 @@ impl Database {
                    identity_user_id = COALESCE(?4, identity_user_id),
                    identity_display_name = COALESCE(?5, identity_display_name),
                    identity_plan = COALESCE(?6, identity_plan), updated_at = ?3,
-                   reset_credits = COALESCE(?7, reset_credits)
+                   reset_credits = COALESCE(?7, reset_credits),
+                   identity_details_json = COALESCE(?8, identity_details_json)
                  WHERE id = ?1",
                 params![
                     id,
@@ -750,6 +768,7 @@ impl Database {
                         .reset_credits
                         .as_ref()
                         .and_then(|credits| serde_json::to_string(credits).ok()),
+                    identity.and_then(|value| serde_json::to_string(&value.details).ok()),
                 ],
             )
             .map_err(|error| error.to_string())?;
@@ -775,6 +794,67 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn api_details_migrate_roundtrip_and_reconnect_preserves_preferences() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("test.sqlite3");
+        let database = Database::open(path.clone()).unwrap();
+        // Simulate a database from before the nullable details column existed.
+        database
+            .connection()
+            .unwrap()
+            .execute(
+                "ALTER TABLE provider_connections DROP COLUMN identity_details_json",
+                [],
+            )
+            .unwrap();
+        let database = Database::open(path).unwrap();
+        let provider = Provider::AccountApi("api:elevenlabs");
+        let item =
+            crate::api_accounts::connection_for(&database, provider.clone(), None, "ElevenLabs")
+                .unwrap();
+        database.upsert_connections(&[item.clone()]).unwrap();
+        database
+            .set_custom_label(&item.id, Some("My account"))
+            .unwrap();
+        database.set_enabled(&item.id, false).unwrap();
+        let details = vec![crate::api_accounts::helpers::detail(
+            "balance",
+            "Balance",
+            "12.5",
+            "balance",
+            Some("USD"),
+        )];
+        database
+            .save_reading(
+                &item.id,
+                &crate::api_accounts::helpers::reading(details.clone()),
+            )
+            .unwrap();
+        let reconnect =
+            crate::api_accounts::connection_for(&database, provider, Some(&item.id), "Replacement")
+                .unwrap();
+        database.upsert_connections(&[reconnect]).unwrap();
+        let actual = database.connection_by_id(&item.id).unwrap().unwrap();
+        assert_eq!(actual.identity.unwrap().details, details);
+        assert_eq!(actual.custom_label.as_deref(), Some("My account"));
+        assert!(!actual.enabled);
+        assert!(crate::api_accounts::connection_for(
+            &database,
+            Provider::AccountApi("api:deepgram"),
+            Some(&item.id),
+            "Wrong"
+        )
+        .is_err());
+        assert!(crate::api_accounts::connection_for(
+            &database,
+            Provider::AccountApi("api:deepgram"),
+            Some("missing"),
+            "Missing"
+        )
+        .is_err());
+    }
 
     #[test]
     fn skips_connections_of_unknown_providers() {

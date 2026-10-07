@@ -5,7 +5,7 @@ import type {
   Provider,
   ProviderConnection,
 } from "@/lib/contracts";
-import { accountLabel, isUnofficial, PROVIDER_NAMES } from "@/lib/labels";
+import { accountLabel, isUnofficial, providerName } from "@/lib/labels";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -72,7 +72,7 @@ export default function ProviderDetailView({
   const connections = state.connections.filter(
     (connection) => connection.provider === provider,
   );
-  const name = PROVIDER_NAMES[provider];
+  const name = providerName(provider);
 
   return (
     <section className={styles.page}>
@@ -144,6 +144,7 @@ export default function ProviderDetailView({
               <ConnectionMenu
                 busy={busyId === connection.id}
                 connection={connection}
+                onSignIn={actions.onSignIn}
                 onRefresh={actions.onRefresh}
                 onRemove={actions.onRemove}
                 onRename={actions.onRename}

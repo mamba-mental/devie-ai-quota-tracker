@@ -1,4 +1,5 @@
 import type {
+  AccountApiProvider,
   CodexResetsStatus,
   ConnectionAlerts,
   DashboardState,
@@ -9,6 +10,32 @@ import type {
   UpdateChannel,
 } from "./contracts";
 import { previewCodexResets, previewState } from "./fixtures";
+import { registerAccountApiNames } from "./labels";
+
+export async function getAccountApiCatalog(): Promise<AccountApiProvider[]> {
+  if (!isDesktop()) return [];
+  const catalog = await call<AccountApiProvider[]>("get_account_api_catalog");
+  registerAccountApiNames(catalog);
+  return catalog;
+}
+
+export async function connectAccountApi(
+  provider: `api:${string}`,
+  apiKey: string,
+  fields: Record<string, string>,
+  secondarySecret?: string,
+  connectionId?: string,
+): Promise<DashboardState> {
+  if (!isDesktop())
+    throw new Error("Account API connections require the desktop app.");
+  return call("connect_account_api", {
+    provider,
+    apiKey,
+    fields,
+    secondarySecret: secondarySecret || null,
+    connectionId: connectionId ?? null,
+  });
+}
 
 declare global {
   interface Window {
@@ -22,6 +49,17 @@ export function isDesktop(): boolean {
 
 export function isWindowsDesktop(): boolean {
   return isDesktop() && /Windows/i.test(window.navigator.userAgent);
+}
+
+/** Changes the existing Windows main window; never creates another WebView. */
+export async function setCompactMode(enabled: boolean): Promise<void> {
+  if (!isWindowsDesktop()) return;
+  await call("set_compact_mode", { enabled });
+}
+
+export async function setCompactAlwaysOnTop(enabled: boolean): Promise<void> {
+  if (!isWindowsDesktop()) return;
+  await call("set_compact_always_on_top", { enabled });
 }
 
 /** Packaged builds only: `tauri dev` must not read the update feed or install over itself. */

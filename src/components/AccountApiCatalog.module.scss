@@ -1,0 +1,10 @@
+@use "../ui/_devie.scss" as *;
+.catalog { display: grid; gap: 12px; min-width: 0; }
+.hint { margin: 0; color: $devie__color__text-sub; font-size: 13px; line-height: 1.5; }
+.category h3 { margin: 4px 0 8px; font-size: 13px; text-transform: capitalize; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.provider { display: flex; flex-direction: column; text-align: left; gap: 6px; padding: 12px; border: 1px solid $devie__color__line; border-radius: 8px; background: $devie__color__background; color: $devie__color__text; cursor: pointer; font: inherit; font-size: 12px; }
+.provider:hover { border-color: currentColor; }
+.provider:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.provider small { color: $devie__color__text-sub; }
+.name { display: flex; align-items: center; gap: 8px; font-size: 13px; }

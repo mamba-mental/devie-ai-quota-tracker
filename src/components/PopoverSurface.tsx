@@ -136,6 +136,9 @@ export default function PopoverSurface({
           {providerCount > 1 && (
             <div className={styles.headerGroup}>
               <QuotaFilters
+                providers={state.connections.map(
+                  (connection) => connection.provider,
+                )}
                 compact
                 filters={filters}
                 onChange={updateFilters}

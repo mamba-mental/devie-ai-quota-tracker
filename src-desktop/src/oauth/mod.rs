@@ -157,6 +157,9 @@ pub async fn start(
 ) -> Result<(LoginStart, PendingLogin), String> {
     let session_id = random_token(16);
     match provider {
+        Provider::AccountApi(_) => {
+            Err("Connect this provider with its account API credentials.".into())
+        }
         Provider::OpenCodeGo => Err("Connect OpenCode Go with an API key.".to_string()),
         Provider::Claude | Provider::Codex => {
             let pair = pkce();
@@ -281,6 +284,9 @@ pub async fn finish(
     manual_code: Option<String>,
 ) -> Result<LoginOutcome, String> {
     match login.provider {
+        Provider::AccountApi(_) => {
+            Err("Connect this provider with its account API credentials.".into())
+        }
         Provider::OpenCodeGo => Err("Connect OpenCode Go with an API key.".to_string()),
         Provider::Copilot => {
             let device = login
@@ -348,7 +354,10 @@ pub async fn finish(
                     )
                     .await
                 }
-                Provider::Copilot | Provider::Cursor | Provider::OpenCodeGo => unreachable!(),
+                Provider::Copilot
+                | Provider::Cursor
+                | Provider::OpenCodeGo
+                | Provider::AccountApi(_) => unreachable!(),
             }
         }
     }
@@ -373,6 +382,9 @@ pub fn connection_for(provider: &Provider, outcome: &LoginOutcome) -> NewConnect
         Provider::Copilot => "Copilot",
         Provider::Cursor => "Cursor",
         Provider::OpenCodeGo => "OpenCode Go",
+        Provider::AccountApi(id) => crate::api_accounts::catalog::find(id)
+            .map(|entry| entry.name)
+            .unwrap_or("Account API"),
     };
     let locator = format!("oauth/{}/{}", provider.as_str(), outcome.account_key);
     let who = outcome
@@ -396,6 +408,10 @@ pub async fn refresh_quota(
     client: &reqwest::Client,
     force: bool,
 ) -> Result<QuotaReading, String> {
+    if let Provider::AccountApi(id) = connection.provider {
+        let current = credentials::load(app_data_dir, &connection.id)?;
+        return crate::api_accounts::read(id, &crate::api_accounts::client()?, &current).await;
+    }
     let current = credentials_for_request(connection, app_data_dir, client).await?;
     match read_quota(connection, client, &current, force).await {
         Err(message) if message.contains("expired") && current.refresh_token.is_some() => {
@@ -421,7 +437,7 @@ pub async fn credentials_for_request(
         Provider::Antigravity => antigravity::REFRESH_LEAD,
         Provider::Copilot => chrono::Duration::zero(),
         Provider::Cursor => cursor::REFRESH_LEAD,
-        Provider::OpenCodeGo => chrono::Duration::zero(),
+        Provider::OpenCodeGo | Provider::AccountApi(_) => chrono::Duration::zero(),
     };
     if current.refresh_token.is_some() && current.expires_within(lead) {
         current = renew(connection, app_data_dir, client, &current).await?;
@@ -442,6 +458,7 @@ async fn renew(
         Provider::Antigravity => antigravity::refresh_tokens(client, current).await,
         Provider::Copilot => Err("GitHub tokens do not renew. Sign in again.".to_string()),
         Provider::Cursor => Err("Cursor tokens do not renew. Sign in again.".to_string()),
+        Provider::AccountApi(_) => Err("Reconnect this account with a new API key.".into()),
         Provider::OpenCodeGo => {
             Err("OpenCode Go API keys do not renew. Sign in again with a new key.".to_string())
         }
@@ -472,6 +489,9 @@ async fn read_quota(
         }
         Provider::Cursor => cursor::usage(client, current).await,
         Provider::OpenCodeGo => opencode_go::usage(client, current).await,
+        Provider::AccountApi(id) => {
+            crate::api_accounts::read(id, &crate::api_accounts::client()?, current).await
+        }
     }
 }
 

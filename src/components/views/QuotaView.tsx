@@ -52,7 +52,11 @@ export default function QuotaView({
   return (
     <section className={styles.page} data-wide>
       <div className={styles.toolbar}>
-        <QuotaFilters filters={filters} onChange={update} />
+        <QuotaFilters
+          providers={state.connections.map((connection) => connection.provider)}
+          filters={filters}
+          onChange={update}
+        />
         <Button
           className={styles.toolbarEnd}
           disabled={refreshing}

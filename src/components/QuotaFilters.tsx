@@ -3,13 +3,14 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { Provider } from "@/lib/contracts";
 import {
   type Filters,
   PROVIDER_FILTERS,
   SORTS,
   type Sort,
 } from "@/lib/filters";
-import { PROVIDER_NAMES } from "@/lib/labels";
+import { providerName } from "@/lib/labels";
 import Select from "@/ui/Select";
 import IconTip from "./IconTip";
 import ProviderIcon from "./ProviderIcon";
@@ -88,19 +89,25 @@ export default function QuotaFilters({
   filters,
   onChange,
   compact = false,
+  providers = [],
 }: {
+  providers?: Provider[];
   filters: Filters;
   onChange: (patch: Partial<Filters>) => void;
   compact?: boolean;
 }) {
   const { t } = useTranslation();
-  const providerOptions = PROVIDER_FILTERS.map((value) => ({
-    value,
-    label: value === "all" ? t("Quota.AllProviders") : PROVIDER_NAMES[value],
-    shortLabel: value === "all" ? t("Quota.All") : undefined,
-    icon:
-      value === "all" ? undefined : <ProviderIcon provider={value} size={16} />,
-  }));
+  const providerOptions = [...new Set([...PROVIDER_FILTERS, ...providers])].map(
+    (value) => ({
+      value,
+      label: value === "all" ? t("Quota.AllProviders") : providerName(value),
+      shortLabel: value === "all" ? t("Quota.All") : undefined,
+      icon:
+        value === "all" ? undefined : (
+          <ProviderIcon provider={value} size={16} />
+        ),
+    }),
+  );
   const sortOptions = SORTS.map((value) => ({
     value,
     label: t(SORT_LABELS[value]),

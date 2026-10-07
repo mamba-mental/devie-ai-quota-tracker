@@ -176,6 +176,7 @@ pub(super) async fn profile(
         .ok_or_else(|| "Google returned no account identity.".to_string())?;
     Ok((
         RemoteIdentity {
+            details: Vec::new(),
             provider_user_id,
             display_name,
             plan: None,

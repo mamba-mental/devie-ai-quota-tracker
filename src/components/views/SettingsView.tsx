@@ -10,11 +10,12 @@ import {
   isWindowsDesktop,
   setLaunchAtLogin,
 } from "@/lib/desktop";
-import { PROVIDER_NAMES, PROVIDERS } from "@/lib/labels";
+import { PROVIDERS, providerName } from "@/lib/labels";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Select from "@/ui/Select";
 import Switch from "@/ui/Switch";
+import AccountApiCatalog from "../AccountApiCatalog";
 import LanguagePicker from "../LanguagePicker";
 import ProviderIcon from "../ProviderIcon";
 import SettingRow from "../SettingRow";
@@ -55,7 +56,7 @@ function ProviderCard({
       <span className={styles.providerCardHeader}>
         <ProviderIcon provider={provider} size={28} />
         <span className={styles.providerCardTitle}>
-          <strong>{PROVIDER_NAMES[provider]}</strong>
+          <strong>{providerName(provider)}</strong>
         </span>
         <ChevronRight className={styles.chevron} size={16} />
       </span>
@@ -327,6 +328,7 @@ export default function SettingsView({
         {t("Settings.BackToDashboard")}
       </Button>
       <ProvidersGroup onOpen={onOpenProvider} state={state} />
+      <AccountApiCatalog onOpen={onOpenProvider} state={state} />
       <SettingRow.Group title={t("Settings.General")}>
         <LaunchAtLoginRow />
         <SettingRow.Row

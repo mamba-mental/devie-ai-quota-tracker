@@ -1,0 +1,6 @@
+@use "../ui/_devie.scss" as *;
+.details { margin: 8px 0 0; display: grid; gap: 6px; font-size: 12px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.row dt { color: $devie__color__text-sub; overflow-wrap: anywhere; }
+.row dd { margin: 0; text-align: right; font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.details[data-compact] { margin: 4px 0; gap: 3px; font-size: 11px; }

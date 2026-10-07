@@ -16,12 +16,13 @@ import { formatAgo } from "@/lib/date";
 import {
   accountLabel,
   fullName,
-  PROVIDER_NAMES,
+  providerName,
   visibleWindows,
 } from "@/lib/labels";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Menu from "@/ui/Menu";
+import AccountDetails from "./AccountDetails";
 import CodexResetsNews from "./CodexResetsNews";
 import styles from "./ConnectionCard.module.scss";
 import IconTip from "./IconTip";
@@ -163,7 +164,7 @@ function FeatureFlags({
           </button>
         </IconTip>
       )}
-      {onAutoPing && (
+      {onAutoPing && !connection.provider.startsWith("api:") && (
         <IconTip label={t("Connection.Menu.AutoPing")}>
           <button
             aria-label={t("Connection.Menu.AutoPing")}
@@ -183,6 +184,7 @@ function FeatureFlags({
 
 /** The "three dots" menu with every action for one account. */
 export function ConnectionMenu({
+  onSignIn,
   connection,
   busy = false,
   onRefresh,
@@ -214,6 +216,12 @@ export function ConnectionMenu({
       <Menu.Portal>
         <Menu.Positioner align="end" sideOffset={4}>
           <Menu.Popup className={styles.menu}>
+            {onSignIn && connection.provider.startsWith("api:") && (
+              <Menu.Item onClick={() => onSignIn(connection)}>
+                <LogIn size={14} />
+                Reconnect account
+              </Menu.Item>
+            )}
             {onRename && (
               <Menu.Item onClick={() => onRename(connection)}>
                 <Pencil size={14} />
@@ -233,7 +241,7 @@ export function ConnectionMenu({
                 <MenuState on={alertsOn(connection)} />
               </Menu.Item>
             )}
-            {onAutoPing && (
+            {onAutoPing && !connection.provider.startsWith("api:") && (
               <Menu.Item onClick={() => onAutoPing(connection)}>
                 <Zap size={14} />
                 {t("Connection.Menu.AutoPing")}
@@ -296,7 +304,7 @@ export default function ConnectionCard({
       <header className={styles.header}>
         <ProviderIcon provider={connection.provider} size={24} />
         <div className={styles.identity}>
-          <h2>{PROVIDER_NAMES[connection.provider]}</h2>
+          <h2>{providerName(connection.provider)}</h2>
           <p>
             {accountLabel(connection)}
             {plan && <span className={styles.plan}> ({plan})</span>}
@@ -328,13 +336,17 @@ export default function ConnectionCard({
       <div className={styles.body}>
         {windows.length > 0 ? (
           <QuotaBars windows={windows} />
-        ) : (
+        ) : !connection.identity?.details?.length ? (
           <p className={styles.empty}>
             {connection.windows.length > 0
               ? t("Connection.AllBarsHidden")
               : (connection.lastError ?? t("Connection.NoQuotaData"))}
           </p>
+        ) : null}
+        {connection.lastError && !!connection.identity?.details?.length && (
+          <p className={styles.empty}>{connection.lastError}</p>
         )}
+        <AccountDetails details={connection.identity?.details} />
       </div>
     </article>
   );

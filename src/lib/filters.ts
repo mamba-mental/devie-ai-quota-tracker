@@ -1,5 +1,5 @@
 import type { Provider, ProviderConnection } from "./contracts";
-import { accountLabel, PROVIDER_NAMES, visibleWindows } from "./labels";
+import { accountLabel, providerName, visibleWindows } from "./labels";
 
 export type ProviderFilter = "all" | Provider;
 export type Sort = "expiring" | "least-left" | "most-left" | "name";
@@ -81,8 +81,8 @@ const SORTERS: Record<
   "least-left": (a, b) => leastLeft(a) - leastLeft(b),
   "most-left": (a, b) => leastLeft(b) - leastLeft(a),
   name: (a, b) =>
-    `${PROVIDER_NAMES[a.provider]} ${accountLabel(a)}`.localeCompare(
-      `${PROVIDER_NAMES[b.provider]} ${accountLabel(b)}`,
+    `${providerName(a.provider)} ${accountLabel(a)}`.localeCompare(
+      `${providerName(b.provider)} ${accountLabel(b)}`,
     ),
 };
 

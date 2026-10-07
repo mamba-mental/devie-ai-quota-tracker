@@ -15,12 +15,13 @@ import {
   finishLogin,
   startLogin,
 } from "@/lib/desktop";
-import { accountLabel, PROVIDER_NAMES } from "@/lib/labels";
+import { accountLabel, providerName } from "@/lib/labels";
 import Button from "@/ui/Button";
 import Dialog from "@/ui/Dialog";
 import Field from "@/ui/Field";
 import Input from "@/ui/Input";
 import InputGroup from "@/ui/InputGroup";
+import AccountApiDialog from "./AccountApiDialog";
 import styles from "./LoginDialog.module.scss";
 import ProviderIcon from "./ProviderIcon";
 
@@ -39,6 +40,13 @@ interface LoginDialogProps {
 }
 
 export default function LoginDialog(props: LoginDialogProps) {
+  if (props.provider.startsWith("api:"))
+    return props.open ? (
+      <AccountApiDialog
+        key={`${props.provider}:${props.renew?.id ?? "new"}`}
+        {...props}
+      />
+    ) : null;
   return props.provider === "opencode-go" ? (
     props.open ? (
       <ApiKeyLoginDialog key={props.renew?.id ?? "new"} {...props} />
@@ -102,7 +110,7 @@ function ApiKeyLoginDialog({
     }
   }
 
-  const name = PROVIDER_NAMES[provider];
+  const name = providerName(provider);
   return (
     <Dialog.Root onOpenChange={changeOpen} open={open} size="sm">
       <Dialog.Portal>
@@ -268,7 +276,7 @@ function OAuthLoginDialog({
     }
   }
 
-  const name = PROVIDER_NAMES[provider];
+  const name = providerName(provider);
 
   return (
     <Dialog.Root onOpenChange={onOpenChange} open={open} size="sm">

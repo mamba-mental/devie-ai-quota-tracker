@@ -1,3 +1,4 @@
+import { KeyRound } from "lucide-react";
 import type { Provider } from "@/lib/contracts";
 import styles from "./ProviderIcon.module.scss";
 
@@ -25,6 +26,7 @@ export function BrandIcon({
   size?: number;
   alt?: string;
 }) {
+  if (brand.startsWith("api:")) return <KeyRound aria-hidden size={size} />;
   return (
     // biome-ignore lint/performance/noImgElement: a static PNG in the app bundle; next/image adds nothing here.
     <img

@@ -1,8 +1,8 @@
 "use client";
 
 import { Toast } from "@base-ui/react/toast";
-import { LoaderCircle } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { LoaderCircle, PanelsTopLeft } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   ConnectionAlerts,
@@ -12,14 +12,18 @@ import type {
 } from "@/lib/contracts";
 import {
   ensureNotificationPermission,
+  getAccountApiCatalog,
   getDashboardState,
   isDesktop,
+  isWindowsDesktop,
   refreshAll,
   refreshConnection,
   removeConnection,
   renameConnection,
   sendTestNotification,
   setAutoPing,
+  setCompactAlwaysOnTop,
+  setCompactMode,
   setConnectionAlerts,
   setConnectionEnabled,
   setHiddenWindows,
@@ -28,12 +32,14 @@ import {
   setUpdateChannel,
   spendResetCredit,
 } from "@/lib/desktop";
-import { accountLabel, PROVIDER_NAMES } from "@/lib/labels";
+import { accountLabel, providerName } from "@/lib/labels";
+import Button from "@/ui/Button";
 import ScrollArea from "@/ui/ScrollArea";
 import Tooltip from "@/ui/Tooltip";
 import AlertsDialog from "./AlertsDialog";
 import styles from "./AppShell.module.scss";
 import AutoPingDialog from "./AutoPingDialog";
+import CompactView from "./CompactView";
 import LoginDialog from "./LoginDialog";
 import PopoverSurface from "./PopoverSurface";
 import QuotaBarsDialog from "./QuotaBarsDialog";
@@ -65,6 +71,25 @@ function errorMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
+const COMPACT_MODE_KEY = "devie:compact-mode";
+const COMPACT_PIN_KEY = "devie:compact-pin";
+
+function readPreference(key: string): boolean {
+  try {
+    return window.localStorage.getItem(key) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function savePreference(key: string, value: boolean) {
+  try {
+    window.localStorage.setItem(key, String(value));
+  } catch {
+    // Window controls still work if local storage is unavailable.
+  }
+}
+
 export default function AppShell() {
   return (
     <Tooltip.Provider>
@@ -88,6 +113,11 @@ function Shell() {
   const [autoPingFor, setAutoPingFor] = useState<ProviderConnection>();
   const [surface, setSurface] = useState<"main" | "popover">("main");
   const [desktop, setDesktop] = useState(false);
+  const [compact, setCompact] = useState(false);
+  const [compactPinned, setCompactPinned] = useState(false);
+  const [compactBusy, setCompactBusy] = useState(false);
+  const compactCommandPending = useRef(false);
+  const compactRestoreStarted = useRef(false);
   const view = page.view;
   const providerPage = page.provider;
 
@@ -97,8 +127,67 @@ function Shell() {
     [toasts],
   );
 
+  const changeCompactMode = useCallback(
+    async (enabled: boolean) => {
+      if (!isWindowsDesktop() || compactCommandPending.current) return;
+      compactCommandPending.current = true;
+      setCompactBusy(true);
+      try {
+        await setCompactMode(enabled);
+        setCompact(enabled);
+        savePreference(COMPACT_MODE_KEY, enabled);
+        setPage({ view: "quota" });
+        setLogin({ open: false });
+        setRenaming(undefined);
+        setBarsFor(undefined);
+        setAlertsFor(undefined);
+        setAutoPingFor(undefined);
+        // Native exit clears topmost. Keep the preference for the next entry.
+        setCompactPinned(false);
+        if (enabled && readPreference(COMPACT_PIN_KEY)) {
+          await setCompactAlwaysOnTop(true);
+          setCompactPinned(true);
+          savePreference(COMPACT_PIN_KEY, true);
+        }
+      } catch (reason) {
+        showError(reason);
+      } finally {
+        compactCommandPending.current = false;
+        setCompactBusy(false);
+      }
+    },
+    [showError],
+  );
+
+  async function changeCompactPin() {
+    if (compactCommandPending.current) return;
+    compactCommandPending.current = true;
+    setCompactBusy(true);
+    try {
+      await setCompactAlwaysOnTop(!compactPinned);
+      setCompactPinned(!compactPinned);
+      savePreference(COMPACT_PIN_KEY, !compactPinned);
+    } catch (reason) {
+      showError(reason);
+    } finally {
+      compactCommandPending.current = false;
+      setCompactBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (compactRestoreStarted.current || !isWindowsDesktop()) return;
+    if (
+      new URLSearchParams(window.location.search).get("surface") === "popover"
+    )
+      return;
+    compactRestoreStarted.current = true;
+    if (readPreference(COMPACT_MODE_KEY)) void changeCompactMode(true);
+  }, [changeCompactMode]);
+
   const load = useCallback(async () => {
     try {
+      await getAccountApiCatalog().catch(showError);
       setState(await getDashboardState());
     } catch (reason) {
       showError(reason);
@@ -235,9 +324,23 @@ function Shell() {
     );
   }
 
+  if (compact) {
+    return (
+      <CompactView
+        state={state}
+        refreshing={refreshing}
+        busy={compactBusy}
+        pinned={compactPinned}
+        onExpand={() => void changeCompactMode(false)}
+        onRefresh={() => void handleRefresh()}
+        onPin={() => void changeCompactPin()}
+      />
+    );
+  }
+
   const onProviderPage = providerPage !== undefined;
   const title = onProviderPage
-    ? PROVIDER_NAMES[providerPage]
+    ? providerName(providerPage)
     : t(view === "settings" ? "Nav.Settings" : "Nav.Quota");
   // The arrow goes up to Settings; the cross closes back to the dashboard.
   const leading = onProviderPage
@@ -264,7 +367,22 @@ function Shell() {
     <AppUpdaterProvider>
       <div className={styles.shell}>
         <TitleBar
-          actions={<UpdateBadge />}
+          actions={
+            <>
+              {desktop && isWindowsDesktop() && view === "quota" && (
+                <Button
+                  disabled={compactBusy}
+                  onClick={() => void changeCompactMode(true)}
+                  size="sm"
+                  variant="secondary"
+                >
+                  <PanelsTopLeft aria-hidden size={14} />
+                  {t("Compact.Enter")}
+                </Button>
+              )}
+              <UpdateBadge />
+            </>
+          }
           leading={leading}
           title={title}
           trailing={trailing}

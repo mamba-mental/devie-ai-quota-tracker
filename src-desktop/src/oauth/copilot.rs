@@ -159,6 +159,7 @@ async fn user(client: &reqwest::Client, access_token: &str) -> Result<RemoteIden
         .and_then(Value::as_str)
         .map(str::to_string);
     Ok(RemoteIdentity {
+        details: Vec::new(),
         provider_user_id: login.clone(),
         display_name: json
             .get("email")
@@ -265,6 +266,7 @@ pub fn parse_payload(payload: &Value, login: &str) -> Result<QuotaReading, Strin
     Ok(QuotaReading {
         source: "GitHub CLI + Copilot quota".to_string(),
         identity: Some(RemoteIdentity {
+            details: Vec::new(),
             provider_user_id: Some(login.to_string()),
             display_name: Some(login.to_string()),
             plan,
